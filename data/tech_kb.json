@@ -1,0 +1,5 @@
+{
+  "internet not working": "Please try restarting your router and modem. If the issue persists, check your network cable connections. If still unresolved, it might require a deeper look at your device's network settings.",
+  "app crashing": "Ensure your app is updated to the latest version. Try clearing the app's cache and data in your device settings. If it continues, please provide your device model and OS version.",
+  "software installation failed": "Check if your system meets the minimum requirements. Temporarily disable your antivirus during installation. Ensure you have administrator privileges."
+}

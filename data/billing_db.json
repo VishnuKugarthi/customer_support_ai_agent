@@ -1,0 +1,20 @@
+{
+  "customer_101": {
+    "name": "Alice Smith",
+    "balance": "$50.00",
+    "last_payment_date": "2024-06-15",
+    "plan": "Premium"
+  },
+  "customer_102": {
+    "name": "Bob Johnson",
+    "balance": "$0.00",
+    "last_payment_date": "2024-07-01",
+    "plan": "Basic"
+  },
+  "customer_103": {
+    "name": "Charlie Brown",
+    "balance": "$120.00 (overdue)",
+    "last_payment_date": "2024-05-20",
+    "plan": "Standard"
+  }
+}
