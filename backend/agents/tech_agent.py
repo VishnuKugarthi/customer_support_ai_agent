@@ -25,10 +25,10 @@ def create_tech_agent(llm: ChatGoogleGenerativeAI) -> AgentExecutor:
         ]
     )
 
+    # Ensure the tools are properly wrapped and used
     tech_tools = [get_tech_solution, escalate_to_human_tool]
 
     tech_agent = create_tool_calling_agent(llm, tech_tools, tech_prompt)
-    # REMOVE handle_parsing_errors=True
     tech_agent_executor = AgentExecutor(
         agent=tech_agent, tools=tech_tools, verbose=True
     )

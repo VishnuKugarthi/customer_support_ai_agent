@@ -6,7 +6,8 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from langchain_core.tools import (
     tool as langchain_tool,
-)  # Import the tool decorator and alias it
+    tool,  # Import the tool decorator
+)
 
 
 # --- Knowledge Base Data Loading ---
@@ -35,6 +36,7 @@ BILLING_DB = load_json_data(
 # --- Tool Definitions (Raw Python Functions) ---
 
 
+@tool
 def get_faq_answer(query: str) -> str:
     """
     Looks up an answer to a common customer question in the FAQ knowledge base.
@@ -46,6 +48,7 @@ def get_faq_answer(query: str) -> str:
     return "I could not find an answer to your question in the FAQ. Please try rephrasing or ask for human assistance."
 
 
+@tool
 def get_tech_solution(issue: str) -> str:
     """
     Retrieves a technical solution from the knowledge base for common tech issues.
@@ -57,6 +60,7 @@ def get_tech_solution(issue: str) -> str:
     return "I could not find a specific solution for this technical issue in our knowledge base. It might require further investigation or escalation."
 
 
+@tool
 def get_billing_info(customer_id: str) -> str:
     """
     Retrieves billing information for a specific customer ID from the billing database.

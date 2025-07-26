@@ -26,10 +26,10 @@ def create_billing_agent(llm: ChatGoogleGenerativeAI) -> AgentExecutor:
         ]
     )
 
+    # Ensure the tools are properly wrapped and used
     billing_tools = [get_billing_info, escalate_to_human_tool]
 
     billing_agent = create_tool_calling_agent(llm, billing_tools, billing_prompt)
-    # REMOVE handle_parsing_errors=True
     billing_agent_executor = AgentExecutor(
         agent=billing_agent, tools=billing_tools, verbose=True
     )
