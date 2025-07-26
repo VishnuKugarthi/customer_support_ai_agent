@@ -1,17 +1,19 @@
 # backend/requirements.txt
 
 # Core LangChain libraries
-langchain==0.3.26
-langchain-core==0.3.71
-langchain-google-genai==2.1.8
+langchain>=0.1.0
+langchain-core>=0.1.7
+langchain-google-genai>=0.0.5
 
 # Web server and API framework
-fastapi==0.111.1
-uvicorn[standard]==0.30.1 # [standard] includes common dependencies like websockets
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
 
 # Environment variable management
-python-dotenv==1.1.1
+python-dotenv>=1.0.0
 
-# For Pydantic models (FastAPI dependency, but good to be explicit)
-pydantic==2.11.7
-# pydantic-settings (if you use Pydantic for settings management, not strictly needed for this project)
+# For Pydantic models
+pydantic>=2.5.2
+
+# Google AI Generative Language
+google-ai-generativelanguage>=0.3.3

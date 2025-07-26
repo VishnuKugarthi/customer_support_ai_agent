@@ -50,15 +50,22 @@ _waiting_for_email: bool = False
 _escalation_summary_context: Optional[str] = None
 _original_query_context: Optional[str] = None
 
-# Initialize the LLM and agents globally
+# Initialize the LLM with proper configuration
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash", google_api_key=GOOGLE_API_KEY, temperature=0.0
+    model="gemini-pro",  # Use gemini-pro instead of gemini-2.0-flash
+    google_api_key=GOOGLE_API_KEY,
+    temperature=0.7,
+    convert_system_message_to_human=True,  # Important for Gemini
 )
 
-# Update agent initialization to handle callback_manager if required
-triage_agent_executor = create_triage_agent(llm)
-tech_agent_executor = create_tech_agent(llm)
-billing_agent_executor = create_billing_agent(llm)
+try:
+    # Initialize agents
+    triage_agent_executor = create_triage_agent(llm)
+    tech_agent_executor = create_tech_agent(llm)
+    billing_agent_executor = create_billing_agent(llm)
+except Exception as e:
+    print(f"Error initializing agents: {str(e)}")
+    raise
 
 
 # Pydantic model for incoming chat requests
