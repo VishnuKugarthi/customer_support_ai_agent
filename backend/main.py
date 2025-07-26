@@ -174,11 +174,21 @@ async def handle_customer_query_backend(
     triage_output = triage_result["output"].strip()
     print(f"Triage Agent Output: {triage_output}")
 
-    # If FAQ resolves the query, return the answer
+    # If FAQ resolves the query, return the answer (FAQ answers never have routing tags)
     if not triage_output.startswith("ROUTE_TECH") and not triage_output.startswith(
         "ROUTE_BILLING"
     ):
         return triage_output
+
+    # Extract any context after the routing tag
+    if triage_output.startswith("ROUTE_TECH:"):
+        context = triage_output.replace("ROUTE_TECH:", "").strip()
+    elif triage_output.startswith("ROUTE_BILLING:"):
+        context = triage_output.replace("ROUTE_BILLING:", "").strip()
+    else:
+        context = ""
+
+    print(f"Routing Context: {context}")
 
     # --- Routing if FAQ is Insufficient ---
     if triage_output.startswith("ROUTE_TECH"):
@@ -196,8 +206,12 @@ async def handle_customer_query_backend(
             _original_query_context = query
             response = "I'll need to connect you with our technical specialist for this issue. Could you please provide your email address for follow-up?"
         else:
-            # Remove any routing tags from the response
-            response = technical_response.replace("ROUTE_TECH", "").strip()
+            # Clean response by removing any routing tags and trimming whitespace
+            response = (
+                technical_response.replace("ROUTE_TECH:", "")
+                .replace("ROUTE_TECH", "")
+                .strip()
+            )
     elif triage_output.startswith("ROUTE_BILLING"):
         print("Orchestrator: Routing to Billing Agent.")
         billing_result = billing_agent_executor.invoke(
@@ -213,8 +227,12 @@ async def handle_customer_query_backend(
             _original_query_context = query
             response = "I'll need to connect you with our billing specialist for this. Could you please provide your email address for follow-up?"
         else:
-            # Remove any routing tags from the response
-            response = billing_response.replace("ROUTE_BILLING", "").strip()
+            # Clean response by removing any routing tags and trimming whitespace
+            response = (
+                billing_response.replace("ROUTE_BILLING:", "")
+                .replace("ROUTE_BILLING", "")
+                .strip()
+            )
 
     return response
 
