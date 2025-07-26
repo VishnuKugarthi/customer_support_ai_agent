@@ -174,65 +174,74 @@ async def handle_customer_query_backend(
     triage_output = triage_result["output"].strip()
     print(f"Triage Agent Output: {triage_output}")
 
-    # If FAQ resolves the query, return the answer (FAQ answers never have routing tags)
-    if not triage_output.startswith("ROUTE_TECH") and not triage_output.startswith(
-        "ROUTE_BILLING"
-    ):
+    # Clean any routing prefixes from the triage output
+    cleaned_triage_output = triage_output
+    if "ROUTE_TECH:" in cleaned_triage_output:
+        cleaned_triage_output = cleaned_triage_output.split("ROUTE_TECH:")[1].strip()
+    elif "ROUTE_BILLING:" in cleaned_triage_output:
+        cleaned_triage_output = cleaned_triage_output.split("ROUTE_BILLING:")[1].strip()
+
+    # If it's a pure FAQ answer (no routing tags), return it directly
+    if not any(tag in triage_output for tag in ["ROUTE_TECH", "ROUTE_BILLING"]):
         return triage_output
 
-    # Extract any context after the routing tag
-    if triage_output.startswith("ROUTE_TECH:"):
-        context = triage_output.replace("ROUTE_TECH:", "").strip()
-    elif triage_output.startswith("ROUTE_BILLING:"):
-        context = triage_output.replace("ROUTE_BILLING:", "").strip()
-    else:
-        context = ""
+    # Store the cleaned context for routing
+    context = cleaned_triage_output
 
     print(f"Routing Context: {context}")
 
+    def clean_agent_response(response: str) -> str:
+        """Clean any routing or internal tags from agent responses."""
+        # List of all internal tags to remove
+        tags_to_remove = [
+            "ROUTE_TECH:",
+            "ROUTE_TECH",
+            "ROUTE_BILLING:",
+            "ROUTE_BILLING",
+        ]
+        cleaned = response
+        for tag in tags_to_remove:
+            cleaned = cleaned.replace(tag, "")
+        return cleaned.strip()
+
     # --- Routing if FAQ is Insufficient ---
-    if triage_output.startswith("ROUTE_TECH"):
+    if "ROUTE_TECH" in triage_output:
         print("Orchestrator: Routing to Technical Support Agent.")
+        # Add context to the query for the technical agent
+        enhanced_query = f"{query}\nContext: {context}" if context else query
         tech_result = tech_agent_executor.invoke(
-            {"input": query, "chat_history": formatted_history}
+            {"input": enhanced_query, "chat_history": formatted_history}
         )
         technical_response = tech_result["output"].strip()
 
         if technical_response.startswith("NEED_EMAIL_FOR_ESCALATION:"):
             _waiting_for_email = True
-            _escalation_summary_context = technical_response.replace(
-                "NEED_EMAIL_FOR_ESCALATION:", ""
-            ).strip()
+            _escalation_summary_context = clean_agent_response(
+                technical_response.replace("NEED_EMAIL_FOR_ESCALATION:", "")
+            )
             _original_query_context = query
             response = "I'll need to connect you with our technical specialist for this issue. Could you please provide your email address for follow-up?"
         else:
-            # Clean response by removing any routing tags and trimming whitespace
-            response = (
-                technical_response.replace("ROUTE_TECH:", "")
-                .replace("ROUTE_TECH", "")
-                .strip()
-            )
-    elif triage_output.startswith("ROUTE_BILLING"):
+            response = clean_agent_response(technical_response)
+
+    elif "ROUTE_BILLING" in triage_output:
         print("Orchestrator: Routing to Billing Agent.")
+        # Add context to the query for the billing agent
+        enhanced_query = f"{query}\nContext: {context}" if context else query
         billing_result = billing_agent_executor.invoke(
-            {"input": query, "chat_history": formatted_history}
+            {"input": enhanced_query, "chat_history": formatted_history}
         )
         billing_response = billing_result["output"].strip()
 
         if billing_response.startswith("NEED_EMAIL_FOR_ESCALATION:"):
             _waiting_for_email = True
-            _escalation_summary_context = billing_response.replace(
-                "NEED_EMAIL_FOR_ESCALATION:", ""
-            ).strip()
+            _escalation_summary_context = clean_agent_response(
+                billing_response.replace("NEED_EMAIL_FOR_ESCALATION:", "")
+            )
             _original_query_context = query
             response = "I'll need to connect you with our billing specialist for this. Could you please provide your email address for follow-up?"
         else:
-            # Clean response by removing any routing tags and trimming whitespace
-            response = (
-                billing_response.replace("ROUTE_BILLING:", "")
-                .replace("ROUTE_BILLING", "")
-                .strip()
-            )
+            response = clean_agent_response(billing_response)
 
     return response
 
