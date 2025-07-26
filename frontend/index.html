@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Customer Support Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #f8fafc; /* Light gray background */
+      }
+      .chat-container {
+        max-width: 600px;
+        height: 80vh; /* 80% of viewport height */
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+        border-radius: 1rem; /* Rounded corners */
+        overflow: hidden;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+          0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Material Design shadow */
+      }
+      .chat-messages {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+        background-color: #f8fafc; /* Messages background */
+      }
+      .message-bubble {
+        max-width: 80%;
+        padding: 0.75rem 1rem;
+        border-radius: 0.75rem; /* Rounded corners for bubbles */
+        margin-bottom: 0.75rem;
+        line-height: 1.4;
+      }
+      .user-message {
+        background-color: #ff6361; /* Energetic & Playful - Coral */
+        color: white;
+        align-self: flex-end;
+        margin-left: auto;
+      }
+      .agent-message {
+        background-color: #bc5090; /* Energetic & Playful - Magenta */
+        color: white;
+        align-self: flex-start;
+        margin-right: auto;
+      }
+      .loading-dots {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        margin-bottom: 0.75rem;
+      }
+      .loading-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #58508d; /* Energetic & Playful - Purple */
+        border-radius: 50%;
+        margin: 0 2px;
+        animation: bounce 1.4s infinite ease-in-out both;
+      }
+      .loading-dot:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+      .loading-dot:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+      .loading-dot:nth-child(3) {
+        animation-delay: 0s;
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: scale(0);
+        }
+        40% {
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body class="flex items-center justify-center min-h-screen p-4">
+    <div class="chat-container bg-white">
+      <div
+        class="chat-header bg-[#003F5C] text-white p-4 rounded-t-xl flex items-center justify-between"
+      >
+        <h2 class="text-xl font-semibold">AI Support Chat</h2>
+        <span class="text-sm opacity-80">Online</span>
+      </div>
+
+      <div id="chat-messages" class="chat-messages flex flex-col">
+        <!-- Initial welcome message -->
+        <div class="agent-message message-bubble">
+          Welcome to our Multi-Agent Customer Support! How can I assist you
+          today?
+        </div>
+      </div>
+
+      <div
+        class="chat-input p-4 bg-gray-50 flex items-center rounded-b-xl border-t border-gray-200"
+      >
+        <input
+          type="text"
+          id="user-input"
+          placeholder="Type your message..."
+          class="flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#58508D] text-gray-800"
+        />
+        <button
+          id="send-button"
+          class="ml-3 px-6 py-3 bg-[#FFA600] text-white rounded-lg font-semibold hover:bg-[#FF6361] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#FFA600] focus:ring-offset-2"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const userInput = document.getElementById("user-input");
+      const sendButton = document.getElementById("send-button");
+      const chatMessages = document.getElementById("chat-messages");
+
+      // Define your FastAPI backend URL
+      const BACKEND_URL = "http://127.0.0.1:8000"; // Make sure this matches your Uvicorn port
+
+      // Chat history to send to the backend for context
+      let chatHistory = [];
+
+      function addMessage(text, sender) {
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message-bubble");
+        if (sender === "user") {
+          messageDiv.classList.add("user-message");
+        } else {
+          messageDiv.classList.add("agent-message");
+        }
+        messageDiv.textContent = text;
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to bottom
+      }
+
+      function showLoading() {
+        const loadingDiv = document.createElement("div");
+        loadingDiv.id = "loading-indicator";
+        loadingDiv.classList.add("loading-dots", "agent-message");
+        loadingDiv.innerHTML = `
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            `;
+        chatMessages.appendChild(loadingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function hideLoading() {
+        const loadingDiv = document.getElementById("loading-indicator");
+        if (loadingDiv) {
+          loadingDiv.remove();
+        }
+      }
+
+      async function sendMessage() {
+        const query = userInput.value.trim();
+        if (query === "") return;
+
+        addMessage(query, "user");
+        // Add user message to history before sending
+        chatHistory.push({ role: "user", content: query });
+        userInput.value = ""; // Clear input
+
+        showLoading(); // Show typing indicator
+
+        try {
+          const response = await fetch(`${BACKEND_URL}/chat`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: query,
+              chat_history: chatHistory, // Send the full history
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              `HTTP error! status: ${response.status}, detail: ${
+                errorData.detail || "Unknown error"
+              }`
+            );
+          }
+
+          const data = await response.json();
+          const agentResponse = data.response;
+
+          hideLoading(); // Hide typing indicator
+          addMessage(agentResponse, "agent");
+          // Add agent message to history after receiving
+          chatHistory.push({ role: "ai", content: agentResponse });
+        } catch (error) {
+          console.error("Error communicating with backend:", error);
+          hideLoading();
+          addMessage(
+            "Oops! Something went wrong. Please try again later.",
+            "agent"
+          );
+          // Optionally, add an error message to history as well
+          chatHistory.push({
+            role: "ai",
+            content: "Oops! Something went wrong.",
+          });
+        }
+      }
+
+      sendButton.addEventListener("click", sendMessage);
+      userInput.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      });
+    </script>
+  </body>
+</html>
