@@ -1,4 +1,4 @@
-# backend/main.py (Updated to use direct_escalate_to_human)
+# backend/main.py (Updated orchestration logic)
 import os
 import re
 from dotenv import load_dotenv
@@ -53,7 +53,7 @@ _original_query_context: Optional[str] = None
 
 # Initialize the LLM with proper configuration
 llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",  # Use gemini-pro instead of gemini-2.0-flash
+    model="gemini-2.0-flash",  # Replace with a valid model name
     google_api_key=GOOGLE_API_KEY,
     temperature=0.7,
     convert_system_message_to_human=True,  # Important for Gemini
@@ -92,6 +92,21 @@ def extract_email(text: str) -> Optional[str]:
     return match.group(0) if match else None
 
 
+def _extract_context_from_history(chat_history: List[Dict[str, str]]) -> str:
+    """Extract relevant context from chat history for escalation."""
+    # Get the last 3 exchanges (or all if less than 3)
+    recent_exchanges = chat_history[-3:] if len(chat_history) > 3 else chat_history
+
+    # Build context string from recent exchanges
+    context_parts = []
+    for msg in recent_exchanges:
+        role = "User" if msg["role"] == "user" else "Agent"
+        content = msg["content"]
+        context_parts.append(f"{role}: {content}")
+
+    return " | ".join(context_parts)
+
+
 # The core logic for handling customer queries, now with email collection
 async def handle_customer_query_backend(
     query: str, raw_chat_history: List[Dict[str, str]]
@@ -101,6 +116,31 @@ async def handle_customer_query_backend(
     formatted_history = format_chat_history(raw_chat_history)
     response = ""
     extracted_email = extract_email(query)  # Try to extract email from current turn
+
+    # --- Direct Human Escalation Request ---
+    if any(
+        phrase in query.lower()
+        for phrase in [
+            "connect me to human",
+            "connect with human",
+            "talk to human",
+            "speak with human",
+        ]
+    ):
+        if extracted_email:
+            # If email is provided in the same message as escalation request
+            context = _extract_context_from_history(raw_chat_history)
+            final_summary = f"Customer requested direct escalation. Context: {context}"
+            response = direct_escalate_to_human(
+                summary=final_summary, user_email=extracted_email
+            )
+            return response
+        else:
+            _waiting_for_email = True
+            _escalation_summary_context = _extract_context_from_history(
+                raw_chat_history
+            )
+            return "I'll help you connect with a human agent. Could you please provide your email address so we can create a support ticket?"
 
     # --- State Management for Email Collection ---
     if _waiting_for_email:
@@ -114,7 +154,6 @@ async def handle_customer_query_backend(
                 if _escalation_summary_context
                 else "Issue requiring human attention."
             )
-            # CALL THE DIRECT RAW FUNCTION HERE
             response = direct_escalate_to_human(
                 summary=final_summary, user_email=extracted_email
             )
@@ -126,8 +165,7 @@ async def handle_customer_query_backend(
             # Still waiting for email, user didn't provide one this turn
             return "I'm still waiting for your email address to escalate this. Could you please provide it?"
 
-    # --- Normal Agent Routing Flow ---
-    # 1. Triage the query
+    # --- Initial Query Processing (Triage) ---
     print("Triage Agent: Analyzing query intent...")
     triage_result = triage_agent_executor.invoke(
         {"input": query, "chat_history": formatted_history}
@@ -135,7 +173,13 @@ async def handle_customer_query_backend(
     triage_output = triage_result["output"].strip()
     print(f"Triage Agent Output: {triage_output}")
 
-    # 2. Orchestrator decides next step based on Triage Agent's output
+    # If FAQ resolves the query, return the answer
+    if not triage_output.startswith("ROUTE_TECH") and not triage_output.startswith(
+        "ROUTE_BILLING"
+    ):
+        return triage_output
+
+    # --- Routing if FAQ is Insufficient ---
     if triage_output.startswith("ROUTE_TECH"):
         print("Orchestrator: Routing to Technical Support Agent.")
         tech_result = tech_agent_executor.invoke(
@@ -166,9 +210,6 @@ async def handle_customer_query_backend(
             response = "I need your email address to escalate this billing issue. Could you please provide it?"
         else:
             response = agent_output
-    else:
-        # If Triage Agent resolved it directly (e.g., FAQ answer)
-        response = triage_output
 
     return response
 
