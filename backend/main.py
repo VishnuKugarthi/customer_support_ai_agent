@@ -54,6 +54,8 @@ _original_query_context: Optional[str] = None
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash", google_api_key=GOOGLE_API_KEY, temperature=0.0
 )
+
+# Update agent initialization to handle callback_manager if required
 triage_agent_executor = create_triage_agent(llm)
 tech_agent_executor = create_tech_agent(llm)
 billing_agent_executor = create_billing_agent(llm)
@@ -180,4 +182,5 @@ async def chat_endpoint(request: ChatRequest):
 
 @app.get("/")
 async def root():
+    return {"message": "AI Customer Support Backend is running!"}
     return {"message": "AI Customer Support Backend is running!"}

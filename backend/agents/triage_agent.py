@@ -2,7 +2,9 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.tools.base import Tool
+from langchain_core.callbacks import CallbackManager
+from langchain_core.callbacks.base import BaseCallbackHandler
+
 from tools.knowledge_base_tools import get_faq_answer
 
 
@@ -36,8 +38,14 @@ def create_triage_agent(llm: ChatGoogleGenerativeAI) -> AgentExecutor:
     triage_tools = [get_faq_answer]
 
     triage_agent = create_tool_calling_agent(llm, triage_tools, triage_prompt)
-    # REMOVE handle_parsing_errors=True
-    triage_agent_executor = AgentExecutor(
-        agent=triage_agent, tools=triage_tools, verbose=True
+
+    # Initialize AgentExecutor with updated configuration
+    triage_agent_executor = AgentExecutor.from_agent_and_tools(
+        agent=triage_agent,
+        tools=triage_tools,
+        verbose=True,
+        handle_parsing_errors=True,
+        max_iterations=3,
     )
+
     return triage_agent_executor
