@@ -185,31 +185,35 @@ async def handle_customer_query_backend(
         tech_result = tech_agent_executor.invoke(
             {"input": query, "chat_history": formatted_history}
         )
-        agent_output = tech_result["output"].strip()
-        if agent_output.startswith("NEED_EMAIL_FOR_ESCALATION:"):
+        technical_response = tech_result["output"].strip()
+
+        if technical_response.startswith("NEED_EMAIL_FOR_ESCALATION:"):
             _waiting_for_email = True
-            _escalation_summary_context = agent_output.replace(
+            _escalation_summary_context = technical_response.replace(
                 "NEED_EMAIL_FOR_ESCALATION:", ""
             ).strip()
             _original_query_context = query
-            response = "I need your email address to escalate this technical issue. Could you please provide it?"
+            response = "I'll need to connect you with our technical specialist for this issue. Could you please provide your email address for follow-up?"
         else:
-            response = agent_output
+            # Remove any routing tags from the response
+            response = technical_response.replace("ROUTE_TECH", "").strip()
     elif triage_output.startswith("ROUTE_BILLING"):
         print("Orchestrator: Routing to Billing Agent.")
         billing_result = billing_agent_executor.invoke(
             {"input": query, "chat_history": formatted_history}
         )
-        agent_output = billing_result["output"].strip()
-        if agent_output.startswith("NEED_EMAIL_FOR_ESCALATION:"):
+        billing_response = billing_result["output"].strip()
+
+        if billing_response.startswith("NEED_EMAIL_FOR_ESCALATION:"):
             _waiting_for_email = True
-            _escalation_summary_context = agent_output.replace(
+            _escalation_summary_context = billing_response.replace(
                 "NEED_EMAIL_FOR_ESCALATION:", ""
             ).strip()
             _original_query_context = query
-            response = "I need your email address to escalate this billing issue. Could you please provide it?"
+            response = "I'll need to connect you with our billing specialist for this. Could you please provide your email address for follow-up?"
         else:
-            response = agent_output
+            # Remove any routing tags from the response
+            response = billing_response.replace("ROUTE_BILLING", "").strip()
 
     return response
 
