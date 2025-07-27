@@ -1,6 +1,7 @@
 {
-  "what are your hours": "Our support hours are Monday to Friday, 9 AM to 5 PM EST.",
+  "what are your hours": "Our support hours are Monday to Saturday, 9 AM to 6 PM.",
   "how do i reset my password": "You can reset your password by visiting our website and clicking 'Forgot Password' on the login page.",
   "what is your return policy": "Our return policy allows returns within 30 days of purchase, provided the item is in its original condition.",
-  "how do i contact support": "You can contact support via email at support@example.com or call us at 1-800-555-1234 during business hours."
+  "how do i contact support": "You can contact support via email at support@example.com or call us at 1-800-555-1234 during business hours from 9am to 6pm Monday to Saturday.",
+  "thank you for your help": "You're welcome! If you have any more questions, feel free to ask."
 }

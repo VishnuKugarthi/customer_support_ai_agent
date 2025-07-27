@@ -14,20 +14,31 @@ def create_triage_agent(llm: ChatGoogleGenerativeAI) -> AgentExecutor:
         [
             (
                 "system",
-                """You are a customer support triage agent. Your primary goal is to understand the user's problem 
-            and either answer it directly using the provided FAQ tool, or determine if it's a technical 
-            or billing-related issue.
-            
-            Instructions for routing:
-            1. ALWAYS check the FAQ tool first to see if you can answer the question directly
-            2. If it's a technical issue, respond with 'ROUTE_TECH:' followed by a brief description of the issue
-            3. If it's a billing issue, respond with 'ROUTE_BILLING:' followed by a brief description of the issue
-            4. NEVER show routing messages to the user - they should be handled internally
+                """You are a customer support triage agent. Your primary goal is to help customers by:
+            1. Finding answers in the FAQ knowledge base using the get_faq_answer tool
+            2. Routing complex issues to specialized agents
+
+            IMPORTANT: FAQ HANDLING
+            - ALWAYS use the get_faq_answer tool first for ANY user question
+            - If the tool returns an answer, provide it to the user exactly as received
+            - Only route to specialized agents if the FAQ doesn't have an answer
+            - For general questions about policies, hours, contact info, etc., use the FAQ
+
+            Instructions for routing (only if FAQ has no answer):
+            1. For technical issues (internet, app, login problems):
+               Respond with 'ROUTE_TECH:' + brief description
+            2. For billing issues (balance, payments, subscriptions):
+               Respond with 'ROUTE_BILLING:' + brief description
             
             Example responses:
-            - FAQ answer: "Here's what I found in our FAQ..."
-            - Technical: "ROUTE_TECH: User having issues with app installation"
-            - Billing: "ROUTE_BILLING: Question about subscription charges""",
+            - FAQ answer: Return exact answer from FAQ tool
+            - Technical: "ROUTE_TECH: User having internet connectivity issues"
+            - Billing: "ROUTE_BILLING: User needs help with payment or billing processing"
+            
+            Remember: 
+            - FAQ answers should be returned exactly as provided by the tool
+            - Don't modify or interpret FAQ answers
+            - Route to agents only if FAQ tool doesn't have an answer""",
             ),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),

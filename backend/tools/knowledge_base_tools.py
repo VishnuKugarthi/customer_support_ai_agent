@@ -42,9 +42,34 @@ def get_faq_answer(query: str) -> str:
     Looks up an answer to a common customer question in the FAQ knowledge base.
     Use this for general inquiries like 'What are your hours?' or 'How do I reset my password?'.
     """
-    for q, a in FAQ_KB.items():
-        if q.lower() in query.lower():
-            return a
+    query_words = set(query.lower().split())
+
+    # First try exact phrase matching
+    for faq_q, faq_a in FAQ_KB.items():
+        if faq_q.lower() in query.lower():
+            return faq_a
+
+    # Then try keyword matching
+    best_match = None
+    max_word_match = 0
+
+    for faq_q, faq_a in FAQ_KB.items():
+        faq_words = set(faq_q.lower().split())
+        matching_words = query_words.intersection(faq_words)
+
+        # Check if this is a better match than what we've seen
+        if len(matching_words) > max_word_match:
+            max_word_match = len(matching_words)
+            best_match = faq_a
+
+        # If we match most of the words in either the query or the FAQ question
+        if len(matching_words) >= min(len(query_words), len(faq_words)) * 0.7:
+            return faq_a
+
+    # If we found a decent partial match, use it
+    if best_match and max_word_match >= 2:
+        return best_match
+
     return "I could not find an answer to your question in the FAQ. Please try rephrasing or ask for human assistance."
 
 
