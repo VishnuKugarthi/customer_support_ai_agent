@@ -58,21 +58,7 @@ customer_support_ai_agent/
 
 ### Frontend Setup
 
-1. Navigate to the `frontend` directory:
-
-   ```bash
-   cd frontend
-   ```
-  
-2. Serve or open the `index.html` file:
-
-   - To use a simple HTTP server:
-
-     ```bash
-     python -m http.server 5500
-     ```
-
-   - Open your browser at `http://localhost:5500` or open `index.html` directly in the browser.
+1. Navigate to the `frontend` directory and open `index.html` directly in the browser.
 
 ## Features
 
