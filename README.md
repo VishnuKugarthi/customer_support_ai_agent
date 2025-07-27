@@ -77,12 +77,6 @@ customer_support_ai_agent/
   - Request body: `{"message": "string", "chat_history": []}`
   - Response: `{"response": "string"}`
 
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| GOOGLE_API_KEY | Google AI API key for LangChain | Yes |
-
 ## Development Notes
 
 ### Adding New Knowledge Base Items
