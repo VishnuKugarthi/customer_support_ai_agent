@@ -1,11 +1,51 @@
 # backend/main.py (Updated orchestration logic)
 import os
 import re
+import time
+from uuid import uuid4
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field
+
+
+# Session management class
+class UserSession:
+    def __init__(self):
+        self.waiting_for_email: bool = False
+        self.escalation_summary: Optional[str] = None
+        self.original_query: Optional[str] = None
+        self.last_interaction: float = time.time()
+
+
+# Session storage
+_user_sessions: Dict[str, UserSession] = {}
+_SESSION_TIMEOUT = 3600  # 1 hour timeout
+
+
+def get_user_session(session_id: str) -> UserSession:
+    """Get or create a user session with automatic cleanup."""
+    current_time = time.time()
+
+    # Cleanup old sessions
+    expired_sessions = [
+        sid
+        for sid, session in _user_sessions.items()
+        if current_time - session.last_interaction > _SESSION_TIMEOUT
+    ]
+    for sid in expired_sessions:
+        del _user_sessions[sid]
+
+    # Get or create session
+    if session_id not in _user_sessions:
+        _user_sessions[session_id] = UserSession()
+
+    _user_sessions[session_id].last_interaction = current_time
+    return _user_sessions[session_id]
+
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, AIMessage
@@ -108,9 +148,31 @@ def _extract_context_from_history(chat_history: List[Dict[str, str]]) -> str:
     return " | ".join(context_parts)
 
 
-# The core logic for handling customer queries, now with email collection
+# Helper function to handle billing queries
+async def handle_billing_query(
+    query: str, formatted_history: List[Any], customer_id: Optional[str] = None
+) -> str:
+    """Handle billing-related queries with optional customer ID."""
+    enhanced_query = query
+    if customer_id:
+        enhanced_query = f"Process this billing query for {customer_id}: {query}"
+    else:
+        # Try to extract customer ID from query if not provided
+        match = re.search(r"customer[_ ](\d+)", query.lower())
+        if match:
+            customer_id = f"customer_{match.group(1)}"
+            enhanced_query = f"Process this billing query for {customer_id}: {query}"
+
+    print(f"Processing billing query: {enhanced_query}")
+    billing_result = billing_agent_executor.invoke(
+        {"input": enhanced_query, "chat_history": formatted_history}
+    )
+    return billing_result["output"].strip()
+
+
+# The core logic for handling customer queries, with session-based state management
 async def handle_customer_query_backend(
-    query: str, raw_chat_history: List[Dict[str, str]]
+    query: str, raw_chat_history: List[Dict[str, str]], session: UserSession
 ) -> str:
     global _waiting_for_email, _escalation_summary_context, _original_query_context
 
@@ -174,16 +236,41 @@ async def handle_customer_query_backend(
     triage_output = triage_result["output"].strip()
     print(f"Triage Agent Output: {triage_output}")
 
-    # Clean any routing prefixes from the triage output
-    cleaned_triage_output = triage_output
+    # Process triage output and determine routing
+    cleaned_triage_output = triage_output.strip()
+
+    # Check for customer ID pattern in the query first
+    customer_id_match = re.search(r"customer[_ ](\d+)", query.lower())
+    if customer_id_match:
+        print("Direct billing route: Customer ID detected")
+        # Normalize customer ID format
+        customer_id = f"customer_{customer_id_match.group(1)}"
+        # Route directly to billing agent
+        return await handle_billing_query(query, formatted_history, customer_id)
+
+    # Then check triage output
     if "ROUTE_TECH:" in cleaned_triage_output:
         cleaned_triage_output = cleaned_triage_output.split("ROUTE_TECH:")[1].strip()
+        route_to = "TECH"
     elif "ROUTE_BILLING:" in cleaned_triage_output:
         cleaned_triage_output = cleaned_triage_output.split("ROUTE_BILLING:")[1].strip()
-
-    # If it's a pure FAQ answer (no routing tags), return it directly
-    if not any(tag in triage_output for tag in ["ROUTE_TECH", "ROUTE_BILLING"]):
-        return triage_output
+        route_to = "BILLING"
+    else:
+        # Check for billing keywords before defaulting to FAQ
+        billing_keywords = [
+            "balance",
+            "payment",
+            "bill",
+            "charge",
+            "account",
+            "plan",
+            "$",
+        ]
+        if any(keyword in query.lower() for keyword in billing_keywords):
+            print("Billing route: Keywords detected")
+            route_to = "BILLING"
+        else:
+            return triage_output  # FAQ response
 
     # Store the cleaned context for routing
     context = cleaned_triage_output
@@ -192,16 +279,36 @@ async def handle_customer_query_backend(
 
     def clean_agent_response(response: str) -> str:
         """Clean any routing or internal tags from agent responses."""
-        # List of all internal tags to remove
+        # List of all internal tags/patterns to remove
         tags_to_remove = [
             "ROUTE_TECH:",
             "ROUTE_TECH",
             "ROUTE_BILLING:",
             "ROUTE_BILLING",
+            "NEED_EMAIL_FOR_ESCALATION:",
+            "Invoking: `get_tech_solution`",
+            "> Entering new AgentExecutor chain...",
+            "> Finished chain.",
+            "with `{",
+            "}`",
         ]
-        cleaned = response
+
+        # First remove any lines containing these patterns
+        cleaned_lines = [
+            line
+            for line in response.split("\n")
+            if not any(tag in line for tag in tags_to_remove)
+            and not line.startswith(">")
+            and not line.startswith("Invoking:")
+        ]
+
+        # Join remaining lines and clean up any leftover tags
+        cleaned = "\n".join(cleaned_lines)
         for tag in tags_to_remove:
             cleaned = cleaned.replace(tag, "")
+
+        # Clean up extra whitespace and newlines
+        cleaned = re.sub(r"\n\s*\n", "\n", cleaned)
         return cleaned.strip()
 
     # --- Routing if FAQ is Insufficient ---
@@ -248,17 +355,37 @@ async def handle_customer_query_backend(
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
+    """Handle incoming chat requests with session management."""
     try:
+        # Generate a session ID if not provided
+        session_id = getattr(request, "session_id", None) or str(uuid4())
+        session = get_user_session(session_id)
+
+        # Process the query
         agent_response = await handle_customer_query_backend(
-            request.message, request.chat_history
+            query=request.message,
+            raw_chat_history=request.chat_history,
+            session=session,
         )
-        return {"response": agent_response}
+
+        # Log successful interaction
+        print(f"Chat processed successfully - Session: {session_id[:8]}")
+
+        return {
+            "response": agent_response,
+            "session_id": session_id,
+            "requires_action": session.waiting_for_email,
+            "action_type": "provide_email" if session.waiting_for_email else None,
+        }
     except Exception as e:
         print(f"Error processing chat request: {e}")
         import traceback
 
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while processing your request. Please try again.",
+        )
 
 
 @app.get("/")

@@ -3,6 +3,9 @@ import json
 import os
 import uuid
 from typing import Optional
+from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
 from pydantic import BaseModel, Field
 from langchain_core.tools import (
     tool as langchain_tool,
@@ -76,13 +79,24 @@ def get_faq_answer(query: str) -> str:
 @tool
 def get_tech_solution(issue: str) -> str:
     """
-    Retrieves a technical solution from the knowledge base for common tech issues.
-    Use this for problems like 'internet not working' or 'app crashing'.
+    Returns a solution from the tech knowledge base using keyword matching.
     """
-    for tech_issue, solution in TECH_KB.items():
-        if tech_issue.lower() in issue.lower():
-            return solution
-    return "I could not find a specific solution for this technical issue in our knowledge base. It might require further investigation or escalation."
+    issue_lower = issue.lower()
+    # Exact match first
+    if issue_lower in TECH_KB:
+        return TECH_KB[issue_lower]
+
+    # Fuzzy/keyword match
+    for kb_key in TECH_KB:
+        if kb_key in issue_lower or issue_lower in kb_key:
+            return TECH_KB[kb_key]
+
+    # Partial word match
+    for kb_key in TECH_KB:
+        if any(word in kb_key for word in issue_lower.split()):
+            return TECH_KB[kb_key]
+
+    return "Sorry, I couldn't find a solution for your issue. Please provide more details or contact support."
 
 
 @tool
@@ -116,24 +130,45 @@ class EscalateToHumanArgs(BaseModel):
 # --- Raw Function for Escalation Logic (for direct calls in main.py) ---
 # This is the actual Python function that contains the escalation logic.
 def _raw_escalate_to_human_logic(summary: str, user_email: Optional[str] = None) -> str:
-    """
-    (Internal) Contains the core logic for escalating to a human agent.
-    """
     ticket_id = str(uuid.uuid4()).replace("-", "")[:8].upper()
     final_email = user_email if user_email else "customer@example.com"
+
+    subject = f"Support Ticket #{ticket_id} Created"
+    body = f"""Dear Customer,\n\nYour support request has been received and escalated to our support team.\n\nTicket Details:\n- Ticket ID: {ticket_id}\n- Status: Open\n- Summary: {summary}\n\nA support representative will contact you shortly to assist you with your issue.\n\nPlease keep this ticket number for your reference: {ticket_id}\n\nIf you need to follow up on this ticket, please reply to this email or contact our support team with your ticket number.\n\nBest regards,\nCustomer Support Team,\nVishnu."""
+    send_email(final_email, subject, body)
 
     print(f"\n--- Escalating to Human Support ---")
     print(f"Summary for human agent: {summary}")
     print(f"Generated Ticket ID: {ticket_id}")
-    print(
-        f"Simulating email to {final_email}: Your issue has been escalated. Your ticket number is {ticket_id}. A human agent will contact you shortly."
-    )
+    print(f"Email sent to {final_email}")
     print(f"-----------------------------------\n")
 
     return (
         f"The issue has been escalated to a human support agent. Your ticket number is {ticket_id}. "
         f"A confirmation has been sent to {final_email}."
     )
+
+
+def send_email(to_email: str, subject: str, body: str):
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    from_email = os.getenv("SMTP_FROM_EMAIL")
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = from_email
+    msg["To"] = to_email
+
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.sendmail(from_email, [to_email], msg.as_string())
+        print(f"Email sent to {to_email}")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
 
 
 # --- LangChain Tool for Agents (using the decorator) ---
