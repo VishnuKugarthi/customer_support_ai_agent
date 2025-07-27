@@ -116,3 +116,7 @@ Common issues and solutions:
 3. Connection errors:
    - Ensure backend server is running
    - Verify ports are not blocked by firewall
+
+I’m currently exploring AI projects and open to freelance gigs and collaborations. Feel free to connect!
+
+[Let’s connect on LinkedIn!](https://www.linkedin.com/in/vishnu-teja-kugarthi/)
