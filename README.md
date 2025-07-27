@@ -68,7 +68,7 @@ customer_support_ai_agent/
   - Billing Support
 - Automated FAQ responses
 - Smart routing based on query type
-- Human escalation system
+- Escalation system that assigns a ticket ID and sends it to user via email for future reference.
 - Real-time chat interface
 
 ## API Endpoints
@@ -82,7 +82,6 @@ customer_support_ai_agent/
 | Variable | Description | Required |
 |----------|-------------|----------|
 | GOOGLE_API_KEY | Google AI API key for LangChain | Yes |
-| CORS_ORIGINS | Allowed CORS origins (comma-separated) | Yes |
 
 ## Development Notes
 
@@ -100,15 +99,6 @@ Agent configurations can be modified in their respective files under `backend/ag
 - `tech_agent.py`
 - `billing_agent.py`
 
-## Testing
-
-Run the test suite:
-
-```bash
-cd backend
-pytest
-```
-
 ## Security Considerations
 
 - Keep your `.env` file secure and never commit it to version control
@@ -122,7 +112,7 @@ pytest
 Common issues and solutions:
 
 1. CORS errors:
-   - Ensure CORS_ORIGINS in .env matches your frontend URL
+   - Ensure your main.py file contain the frontend URL as a origin.
    - Check if frontend is using the correct backend URL
 
 2. Agent not responding:
