@@ -1,6 +1,6 @@
 # Customer Support AI Agent
 
-An intelligent customer support system that uses AI agents to handle technical, billing, and general inquiries.
+In this project, we wire up multiple small "agents" behind a FastAPI endpoint to triage, answer FAQs, resolve tech issues, handle billing lookups, and, if needed, escalate to human support via email.
 
 ## Project Structure
 
