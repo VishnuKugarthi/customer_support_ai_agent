@@ -39,11 +39,15 @@ customer_support_ai_agent/
    pip install -r requirements.txt
    ```
 
-3. Create a `.env` file in the `backend` directory:
+3. Create a `.env` file in the `backend` directory with the following variables:
 
-   ```
+   ```bash
    GOOGLE_API_KEY=your_google_api_key_here
-   CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+   SMTP_SERVER=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USERNAME=your_email@example.com
+   SMTP_PASSWORD=your_email_password
+   SMTP_FROM_EMAIL=your_email@example.com
    ```
 
 4. Start the backend server:
@@ -54,23 +58,21 @@ customer_support_ai_agent/
 
 ### Frontend Setup
 
-1. Navigate to the frontend directory:
+1. Navigate to the `frontend` directory:
 
    ```bash
    cd frontend
    ```
+  
+2. Serve or open the `index.html` file:
 
-2. You can serve the frontend using any static file server. For example:
+   - To use a simple HTTP server:
 
-   ```bash
-   python -m http.server 3000
-   ```
+     ```bash
+     python -m http.server 5500
+     ```
 
-   Or use Node.js's `http-server`:
-
-   ```bash
-   npx http-server -p 3000
-   ```
+   - Open your browser at `http://localhost:5500` or open `index.html` directly in the browser.
 
 ## Features
 
