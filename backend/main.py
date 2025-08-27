@@ -391,4 +391,3 @@ async def chat_endpoint(request: ChatRequest):
 @app.get("/")
 async def root():
     return {"message": "AI Customer Support Backend is running!"}
-    return {"message": "AI Customer Support Backend is running!"}
