@@ -120,3 +120,6 @@ Common issues and solutions:
 I’m currently exploring AI projects and open to freelance gigs and collaborations. Feel free to connect!
 
 [Let’s connect on LinkedIn!](https://www.linkedin.com/in/vishnu-teja-kugarthi/)
+
+## Medium Blog
+https://medium.com/@vishnutejaap/building-a-multi-ai-agent-customer-support-system-with-langchain-16e1051a6321
